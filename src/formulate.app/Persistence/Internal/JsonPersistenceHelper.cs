@@ -227,12 +227,16 @@
             if (Directory.Exists(BasePath))
             {
                 // get all the files in the directory
+                /*
                 var files = Directory.GetFiles(BasePath, WildcardPattern);
                 foreach (var file in files)
                 {
                     // read from cache
                     ReadFileIfNecessary<EntityType>(file);
                 }
+                */
+
+                ReadAllFilesIfNecessary<EntityType>();
             }
 
             // return all of EntityType entities
@@ -245,35 +249,36 @@
         {
             var updatedFiles = new List<string>();
 
-            var currentFilesList = new DirectoryInfo(BasePath)
+            var directoryInfoListing = new DirectoryInfo(BasePath)
                 .GetFiles(WildcardPattern, SearchOption.TopDirectoryOnly);
 
-            var currentFileNames = currentFilesList.Select(x => x.FullName);
+            var fileNamesList = directoryInfoListing
+                .Select(x => x.FullName)
+                .ToList();
 
-            var existingFiles = currentFileNames
+            var existingFiles = fileNamesList
                 .Where(CurrentEntityList.ContainsKey)
-                .Select(x => x.FullName);
-
-            var unreadFiles = currentFileNames
-                .Except(existingFiles)
-                .Select(x => currentFilesList.Where(y => y.FullName == x).FirstOrDefault())
+                .Select(x => directoryInfoListing.Where(y => y.FullName == x).FirstOrDefault())
                 .ToDictionary(x => x.FullName, x => new Tuple<long, DateTime>(x.Length, x.LastWriteTime));
+
+            var unreadFiles = fileNamesList
+                .Except(existingFiles.Keys);
 
             foreach (var unreadFile in unreadFiles)
             {
-                ReadFileContents<EntityType>(unreadFile.Key);
+                ReadFileContents<EntityType>(unreadFile);
 
-                updatedFiles.Add(unreadFile.Key);
+                updatedFiles.Add(unreadFile);
             }
 
             foreach (var existingFile in existingFiles)
             {
                 // force a reload if the file has been updated
-                if (!unreadFiles.ContainsKey(existingFile) || !CurrentEntityList.ContainsKey(existingFile) || CurrentEntityList[existingFile].Item3 != fileInfo.Length || CurrentEntityList[existingFile].Item4 != fileInfo.LastWriteTime)
+                if (!updatedFiles.Contains(existingFile.Key) && (!CurrentEntityList.ContainsKey(existingFile.Key) || CurrentEntityList[existingFile.Key].Item3 != existingFile.Value.Item1 || CurrentEntityList[existingFile.Key].Item4 != existingFile.Value.Item2))
                 {
-                    ReadFileContents<EntityType>(file);
+                    ReadFileContents<EntityType>(existingFile.Key);
 
-                    updatedFiles.Add(unreadFile.Key);
+                    updatedFiles.Add(existingFile.Key);
                 }
             }
 
