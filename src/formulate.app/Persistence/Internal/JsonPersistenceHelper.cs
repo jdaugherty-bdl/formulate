@@ -35,6 +35,9 @@
         /// </summary>
         private string WildcardPattern { get; set; }
 
+        //private static Dictionary<string, Tuple<long, DateTime>> LastJsonFileList { get; set; }
+        private static Dictionary<string, Tuple<Type, object, long, DateTime>> CurrentEntityList { get; set; }
+
         #endregion
 
 
@@ -152,6 +155,9 @@
             {
                 File.Delete(path);
             }
+
+            if (CurrentEntityList.ContainsKey(path))
+                CurrentEntityList.Remove(path);
         }
 
 
@@ -165,9 +171,8 @@
         public EntityType Retrieve<EntityType>(Guid entityId)
         {
             var path = GetEntityPath(entityId);
-            var json = GetFileContents(path);
-            var entity = JsonHelper.Deserialize<EntityType>(json);
-            return entity;
+
+            return ReadFileIfNecessary<EntityType>(path);
         }
 
 
@@ -188,17 +193,13 @@
             var entities = RetrieveAll<EntityType>();
             if (parentId.HasValue)
             {
-
                 // Return entities under folder.
                 return entities.Where(x => x.Path[x.Path.Length - 2] == parentId.Value);
-
             }
             else
             {
-
                 // Return root entities.
                 return entities.Where(x => x.Path.Length == 2);
-
             }
         }
 
@@ -218,18 +219,122 @@
         /// </returns>
         public IEnumerable<EntityType> RetrieveAll<EntityType>()
         {
-            var entities = new List<EntityType>();
+            // if the singleton isn't set up, then create a new one
+            if (CurrentEntityList == null)
+                CurrentEntityList = new Dictionary<string, Tuple<Type, object, long, DateTime>>();
+
+            // make sure the root folder exists first
             if (Directory.Exists(BasePath))
             {
+                // get all the files in the directory
                 var files = Directory.GetFiles(BasePath, WildcardPattern);
                 foreach (var file in files)
                 {
-                    var contents = GetFileContents(file);
-                    var entity = JsonHelper.Deserialize<EntityType>(contents);
-                    entities.Add(entity);
+                    // read from cache
+                    ReadFileIfNecessary<EntityType>(file);
                 }
             }
-            return entities;
+
+            // return all of EntityType entities
+            return CurrentEntityList
+                .Where(x => x.Value.Item1 == typeof(EntityType))
+                .Select(x => (EntityType)x.Value.Item2);
+        }
+
+        private IEnumerable<EntityType> ReadAllFilesIfNecessary<EntityType>()
+        {
+            var updatedFiles = new List<string>();
+
+            var currentFilesList = new DirectoryInfo(BasePath)
+                .GetFiles(WildcardPattern, SearchOption.TopDirectoryOnly);
+
+            var currentFileNames = currentFilesList.Select(x => x.FullName);
+
+            var existingFiles = currentFileNames
+                .Where(CurrentEntityList.ContainsKey)
+                .Select(x => x.FullName);
+
+            var unreadFiles = currentFileNames
+                .Except(existingFiles)
+                .Select(x => currentFilesList.Where(y => y.FullName == x).FirstOrDefault())
+                .ToDictionary(x => x.FullName, x => new Tuple<long, DateTime>(x.Length, x.LastWriteTime));
+
+            foreach (var unreadFile in unreadFiles)
+            {
+                ReadFileContents<EntityType>(unreadFile.Key);
+
+                updatedFiles.Add(unreadFile.Key);
+            }
+
+            foreach (var existingFile in existingFiles)
+            {
+                // force a reload if the file has been updated
+                if (!unreadFiles.ContainsKey(existingFile) || !CurrentEntityList.ContainsKey(existingFile) || CurrentEntityList[existingFile].Item3 != fileInfo.Length || CurrentEntityList[existingFile].Item4 != fileInfo.LastWriteTime)
+                {
+                    ReadFileContents<EntityType>(file);
+
+                    updatedFiles.Add(unreadFile.Key);
+                }
+            }
+
+            return CurrentEntityList
+                .Where(x => updatedFiles.Contains(x.Key))
+                .Select(x => (EntityType)x.Value.Item2);
+        }
+
+        /// <summary>
+        /// Checks if the file has not already been read to the singleton or if the file contents have changed, and reread file contents if they are.
+        /// </summary>
+        /// <typeparam name="EntityType">The object type to convert file contents to.</typeparam>
+        /// <param name="file">The full path of the file to read.</param>
+        /// <returns>An object of type EntityType as read from the JSON file.</returns>
+        private EntityType ReadFileIfNecessary<EntityType>(string file)
+        {
+            // if the file hasn't been read (or has been cleared from the cache), just reread the file
+            if (!CurrentEntityList.ContainsKey(file))
+            {
+                return ReadFileContents<EntityType>(file);
+            }
+            else
+            {
+                // check file size and date/time - if either has changed, force file reread
+                var fileInfo = new FileInfo(file);
+
+                // force a reload if the file has been updated
+                if (CurrentEntityList[file].Item3 != fileInfo.Length || CurrentEntityList[file].Item4 != fileInfo.LastWriteTime)
+                    return ReadFileContents<EntityType>(file); 
+            }
+
+            // if no reread is necessary, just return the object from cache
+            return (EntityType)CurrentEntityList[file].Item2;
+        }
+
+        /// <summary>
+        /// Reads the file contents of the specified path and adds it and the file information to a singleton.
+        /// </summary>
+        /// <typeparam name="EntityType">The object type to convert file contents to.</typeparam>
+        /// <param name="file">The full path of the file to read.</param>
+        /// <returns>An object of type EntityType as read from the JSON file.</returns>
+        private EntityType ReadFileContents<EntityType>(string file)
+        {
+            // if we're here, we're forcing a reread
+            if (CurrentEntityList.ContainsKey(file))
+                CurrentEntityList.Remove(file);
+
+            // read the file and convert
+            var contents = GetFileContents(file);
+            var entity = JsonHelper.Deserialize<EntityType>(contents);
+
+            //entities.Add(entity);
+
+            // get the size and date/time of last write
+            var fileInfo = new FileInfo(file);
+
+            // save to singleton
+            CurrentEntityList.Add(file, new Tuple<Type, object, long, DateTime>(typeof(EntityType), entity, fileInfo.Length, fileInfo.LastWriteTime));
+
+            // return this entity for ease of use by caller
+            return entity;
         }
 
         #endregion
