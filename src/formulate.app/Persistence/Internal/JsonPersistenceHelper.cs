@@ -150,6 +150,10 @@
         /// <param name="entityId">The ID of the entity to delete.</param>
         public void Delete(Guid entityId)
         {
+            // if the singleton isn't set up, then create a new one
+            if (CurrentEntityList == null)
+                CurrentEntityList = new Dictionary<string, Tuple<Type, object, long, DateTime>>();
+
             var path = GetEntityPath(entityId);
             if (File.Exists(path))
             {
@@ -219,10 +223,6 @@
         /// </returns>
         public IEnumerable<EntityType> RetrieveAll<EntityType>()
         {
-            // if the singleton isn't set up, then create a new one
-            if (CurrentEntityList == null)
-                CurrentEntityList = new Dictionary<string, Tuple<Type, object, long, DateTime>>();
-
             // make sure the root folder exists first
             if (Directory.Exists(BasePath))
             {
@@ -247,6 +247,10 @@
 
         private IEnumerable<EntityType> ReadAllFilesIfNecessary<EntityType>()
         {
+            // if the singleton isn't set up, then create a new one
+            if (CurrentEntityList == null)
+                CurrentEntityList = new Dictionary<string, Tuple<Type, object, long, DateTime>>();
+
             var updatedFiles = new List<string>();
 
             var directoryInfoListing = new DirectoryInfo(BasePath)
@@ -266,19 +270,25 @@
 
             foreach (var unreadFile in unreadFiles)
             {
-                ReadFileContents<EntityType>(unreadFile);
+                var fixedFile = Path.Combine(Path.GetDirectoryName(unreadFile), Path.GetFileName(unreadFile));
 
-                updatedFiles.Add(unreadFile);
+                var ent = ReadFileContents<EntityType>(fixedFile);
+
+                if (ent != default)
+                    updatedFiles.Add(fixedFile);
             }
 
             foreach (var existingFile in existingFiles)
             {
-                // force a reload if the file has been updated
-                if (!updatedFiles.Contains(existingFile.Key) && (!CurrentEntityList.ContainsKey(existingFile.Key) || CurrentEntityList[existingFile.Key].Item3 != existingFile.Value.Item1 || CurrentEntityList[existingFile.Key].Item4 != existingFile.Value.Item2))
-                {
-                    ReadFileContents<EntityType>(existingFile.Key);
+                var fixedFile = Path.Combine(Path.GetDirectoryName(existingFile.Key), Path.GetFileName(existingFile.Key));
 
-                    updatedFiles.Add(existingFile.Key);
+                // force a reload if the file has been updated
+                if (!updatedFiles.Contains(fixedFile) && (!CurrentEntityList.ContainsKey(fixedFile) || CurrentEntityList[fixedFile].Item3 != existingFile.Value.Item1 || CurrentEntityList[fixedFile].Item4 != existingFile.Value.Item2))
+                {
+                    var ent = ReadFileContents<EntityType>(fixedFile);
+
+                    if (ent != default)
+                        updatedFiles.Add(fixedFile);
                 }
             }
 
@@ -295,23 +305,32 @@
         /// <returns>An object of type EntityType as read from the JSON file.</returns>
         private EntityType ReadFileIfNecessary<EntityType>(string file)
         {
+            if (!File.Exists(file))
+                return default;
+
+            var fixedFile = Path.Combine(Path.GetDirectoryName(file), Path.GetFileName(file));
+            
+            // if the singleton isn't set up, then create a new one
+            if (CurrentEntityList == null)
+                CurrentEntityList = new Dictionary<string, Tuple<Type, object, long, DateTime>>();
+
             // if the file hasn't been read (or has been cleared from the cache), just reread the file
-            if (!CurrentEntityList.ContainsKey(file))
+            if (!CurrentEntityList.ContainsKey(fixedFile)) //CurrentEntityList.ContainsKey(file))
             {
-                return ReadFileContents<EntityType>(file);
+                return ReadFileContents<EntityType>(fixedFile);
             }
             else
             {
                 // check file size and date/time - if either has changed, force file reread
-                var fileInfo = new FileInfo(file);
+                var fileInfo = new FileInfo(fixedFile);
 
                 // force a reload if the file has been updated
-                if (CurrentEntityList[file].Item3 != fileInfo.Length || CurrentEntityList[file].Item4 != fileInfo.LastWriteTime)
-                    return ReadFileContents<EntityType>(file); 
+                if (CurrentEntityList[fixedFile].Item3 != fileInfo.Length || CurrentEntityList[fixedFile].Item4 != fileInfo.LastWriteTime)
+                    return ReadFileContents<EntityType>(fixedFile); 
             }
 
             // if no reread is necessary, just return the object from cache
-            return (EntityType)CurrentEntityList[file].Item2;
+            return (EntityType)CurrentEntityList[fixedFile].Item2;
         }
 
         /// <summary>
@@ -322,21 +341,30 @@
         /// <returns>An object of type EntityType as read from the JSON file.</returns>
         private EntityType ReadFileContents<EntityType>(string file)
         {
+            if (!File.Exists(file))
+                return default;
+
+            var fixedFile = Path.Combine(Path.GetDirectoryName(file), Path.GetFileName(file));
+
+            // if the singleton isn't set up, then create a new one
+            if (CurrentEntityList == null)
+                CurrentEntityList = new Dictionary<string, Tuple<Type, object, long, DateTime>>();
+
             // if we're here, we're forcing a reread
-            if (CurrentEntityList.ContainsKey(file))
-                CurrentEntityList.Remove(file);
+            if (CurrentEntityList.ContainsKey(fixedFile))
+                CurrentEntityList.Remove(fixedFile);
 
             // read the file and convert
-            var contents = GetFileContents(file);
+            var contents = GetFileContents(fixedFile);
             var entity = JsonHelper.Deserialize<EntityType>(contents);
 
             //entities.Add(entity);
 
             // get the size and date/time of last write
-            var fileInfo = new FileInfo(file);
+            var fileInfo = new FileInfo(fixedFile);
 
             // save to singleton
-            CurrentEntityList.Add(file, new Tuple<Type, object, long, DateTime>(typeof(EntityType), entity, fileInfo.Length, fileInfo.LastWriteTime));
+            CurrentEntityList.Add(fixedFile, new Tuple<Type, object, long, DateTime>(typeof(EntityType), entity, fileInfo.Length, fileInfo.LastWriteTime));
 
             // return this entity for ease of use by caller
             return entity;
