@@ -274,7 +274,7 @@
 
                 var ent = ReadFileContents<EntityType>(fixedFile);
 
-                if (ent != default)
+                if (ent != null) //default)
                     updatedFiles.Add(fixedFile);
             }
 
@@ -287,7 +287,7 @@
                 {
                     var ent = ReadFileContents<EntityType>(fixedFile);
 
-                    if (ent != default)
+                    if (ent != null) //default)
                         updatedFiles.Add(fixedFile);
                 }
             }
