@@ -10,5 +10,6 @@
         public string[] Validations { get; set; }
         public string TypeFullName { get; set; }
         public object Configuration { get; set; }
+        public bool ModifyDisable { get; set; }
     }
 }

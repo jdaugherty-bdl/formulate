@@ -52,6 +52,8 @@
         /// </summary>
         public Guid[] Validations { get; set; }
 
+        public bool ModifyDisable { get; set; }
+
 
         /// <summary>
         /// Information about the field.

@@ -135,6 +135,7 @@
                             Category = field.Category,
                             Name = field.Name,
                             IsServerSideOnly = field.IsServerSideOnly,
+                            ModifyDisable = field.ModifyDisable,
                             Validations = validations.Select(x => new ValidationDefinition()
                             {
                                 Alias = x.Alias,

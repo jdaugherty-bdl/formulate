@@ -238,6 +238,7 @@
                         field.Name = x.Name;
                         field.Label = x.Label;
                         field.Category = x.Category;
+                        field.ModifyDisable = x.ModifyDisable;
                         field.Validations = x.Validations.MakeSafe()
                             .Select(y => GuidHelper.GetGuid(y)).ToArray();
                         field.FieldConfiguration =

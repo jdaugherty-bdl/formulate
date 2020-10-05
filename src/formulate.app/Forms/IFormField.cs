@@ -17,6 +17,7 @@
         string Name { get; set; }
         string Label { get; set; }
         string Category { get; set; }
+        bool ModifyDisable { get; set; }
         string FieldConfiguration { get; set; }
         Guid[] Validations { get; set; }
         IFormFieldMetaInfo[] MetaInfo { get; set; }
