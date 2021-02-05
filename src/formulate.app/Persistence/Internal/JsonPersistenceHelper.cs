@@ -56,6 +56,10 @@
             this.BasePath = basePath;
             this.Extension = extension;
             this.WildcardPattern = wildcard;
+
+            // if the singleton isn't set up, then create a new one
+            if (CurrentEntityList == null)
+                CurrentEntityList = new Dictionary<string, Tuple<Type, object, long, DateTime>>();
         }
 
         #endregion
@@ -150,10 +154,6 @@
         /// <param name="entityId">The ID of the entity to delete.</param>
         public void Delete(Guid entityId)
         {
-            // if the singleton isn't set up, then create a new one
-            if (CurrentEntityList == null)
-                CurrentEntityList = new Dictionary<string, Tuple<Type, object, long, DateTime>>();
-
             var path = GetEntityPath(entityId);
             if (File.Exists(path))
             {
@@ -193,7 +193,6 @@
         public IEnumerable<EntityType> RetrieveChildren<EntityType>(Guid? parentId)
             where EntityType: IEntity
         {
-            // TODO: Optimize this. I'm reading in all entities just to get a subset of them.
             var entities = RetrieveAll<EntityType>();
             if (parentId.HasValue)
             {
@@ -247,10 +246,6 @@
 
         private IEnumerable<EntityType> ReadAllFilesIfNecessary<EntityType>()
         {
-            // if the singleton isn't set up, then create a new one
-            if (CurrentEntityList == null)
-                CurrentEntityList = new Dictionary<string, Tuple<Type, object, long, DateTime>>();
-
             var updatedFiles = new List<string>();
 
             var directoryInfoListing = new DirectoryInfo(BasePath)
@@ -263,7 +258,7 @@
             var existingFiles = fileNamesList
                 .Where(CurrentEntityList.ContainsKey)
                 .Select(x => directoryInfoListing.Where(y => y.FullName == x).FirstOrDefault())
-                .ToDictionary(x => x.FullName, x => new Tuple<long, DateTime>(x.Length, x.LastWriteTime));
+                .ToDictionary(x => Path.Combine(Path.GetDirectoryName(x.FullName), Path.GetFileName(x.FullName)), x => new Tuple<long, DateTime>(x.Length, x.LastWriteTime));
 
             var unreadFiles = fileNamesList
                 .Except(existingFiles.Keys);
@@ -280,20 +275,24 @@
 
             foreach (var existingFile in existingFiles)
             {
-                var fixedFile = Path.Combine(Path.GetDirectoryName(existingFile.Key), Path.GetFileName(existingFile.Key));
+                //var fixedFile = Path.Combine(Path.GetDirectoryName(existingFile.Key), Path.GetFileName(existingFile.Key));
 
                 // force a reload if the file has been updated
-                if (!updatedFiles.Contains(fixedFile) && (!CurrentEntityList.ContainsKey(fixedFile) || CurrentEntityList[fixedFile].Item3 != existingFile.Value.Item1 || CurrentEntityList[fixedFile].Item4 != existingFile.Value.Item2))
+                if (!updatedFiles.Contains(existingFile.Key) && (!CurrentEntityList.ContainsKey(existingFile.Key) || CurrentEntityList[existingFile.Key].Item3 != existingFile.Value.Item1 || CurrentEntityList[existingFile.Key].Item4 != existingFile.Value.Item2))
                 {
-                    var ent = ReadFileContents<EntityType>(fixedFile);
+                    var ent = ReadFileContents<EntityType>(existingFile.Key);
 
                     if (ent != null) //default)
-                        updatedFiles.Add(fixedFile);
+                        updatedFiles.Add(existingFile.Key);
                 }
+
+                // TODO: log that a file was not read
+
             }
 
             return CurrentEntityList
-                .Where(x => updatedFiles.Contains(x.Key))
+                //.Where(x => updatedFiles.Contains(x.Key))
+                .Where(x => x.Value.Item1 == typeof(EntityType))
                 .Select(x => (EntityType)x.Value.Item2);
         }
 
@@ -309,10 +308,6 @@
                 return default;
 
             var fixedFile = Path.Combine(Path.GetDirectoryName(file), Path.GetFileName(file));
-            
-            // if the singleton isn't set up, then create a new one
-            if (CurrentEntityList == null)
-                CurrentEntityList = new Dictionary<string, Tuple<Type, object, long, DateTime>>();
 
             // if the file hasn't been read (or has been cleared from the cache), just reread the file
             if (!CurrentEntityList.ContainsKey(fixedFile)) //CurrentEntityList.ContainsKey(file))
@@ -345,10 +340,6 @@
                 return default;
 
             var fixedFile = Path.Combine(Path.GetDirectoryName(file), Path.GetFileName(file));
-
-            // if the singleton isn't set up, then create a new one
-            if (CurrentEntityList == null)
-                CurrentEntityList = new Dictionary<string, Tuple<Type, object, long, DateTime>>();
 
             // if we're here, we're forcing a reread
             if (CurrentEntityList.ContainsKey(fixedFile))
