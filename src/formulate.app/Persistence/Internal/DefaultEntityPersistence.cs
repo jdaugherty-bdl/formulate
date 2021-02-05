@@ -11,6 +11,7 @@
     using Resolvers;
     using System;
     using System.Collections.Generic;
+    using System.Configuration;
     using System.Linq;
     using Validations;
 
@@ -169,7 +170,14 @@
             }
             children.AddRange(Layouts.RetrieveChildren(parentId));
             children.AddRange(Validations.RetrieveChildren(parentId));
-            children.AddRange(DataValues.RetrieveChildren(parentId));
+
+            //2021-02-05 [JD] - commenting this out because we have 4,000 data values and is making the back end time out when there are a lot of children and iterations
+            if (bool.Parse(ConfigurationManager.AppSettings["ReadFormulateDataValues"]))
+            {
+                // TODO: figure out how to get data values without it taking a long time
+                children.AddRange(DataValues.RetrieveChildren(parentId));
+            }
+
             return children;
         }
 
