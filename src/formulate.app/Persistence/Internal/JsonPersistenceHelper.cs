@@ -246,7 +246,7 @@
 
         private IEnumerable<EntityType> ReadAllFilesIfNecessary<EntityType>()
         {
-            var updatedFiles = new List<string>();
+            //var updatedFiles = new List<string>();
 
             var directoryInfoListing = new DirectoryInfo(BasePath)
                 .GetFiles(WildcardPattern, SearchOption.TopDirectoryOnly);
@@ -267,10 +267,13 @@
             {
                 var fixedFile = Path.Combine(Path.GetDirectoryName(unreadFile), Path.GetFileName(unreadFile));
 
+                ReadFileContents<EntityType>(fixedFile);
+                /*
                 var ent = ReadFileContents<EntityType>(fixedFile);
 
                 if (ent != null) //default)
                     updatedFiles.Add(fixedFile);
+                */
             }
 
             foreach (var existingFile in existingFiles)
@@ -278,12 +281,16 @@
                 //var fixedFile = Path.Combine(Path.GetDirectoryName(existingFile.Key), Path.GetFileName(existingFile.Key));
 
                 // force a reload if the file has been updated
-                if (!updatedFiles.Contains(existingFile.Key) && (!CurrentEntityList.ContainsKey(existingFile.Key) || CurrentEntityList[existingFile.Key].Item3 != existingFile.Value.Item1 || CurrentEntityList[existingFile.Key].Item4 != existingFile.Value.Item2))
+                //if (!updatedFiles.Contains(existingFile.Key) && (!CurrentEntityList.ContainsKey(existingFile.Key) || CurrentEntityList[existingFile.Key].Item3 != existingFile.Value.Item1 || CurrentEntityList[existingFile.Key].Item4 != existingFile.Value.Item2))
+                if (!CurrentEntityList.ContainsKey(existingFile.Key) || CurrentEntityList[existingFile.Key].Item3 != existingFile.Value.Item1 || CurrentEntityList[existingFile.Key].Item4 != existingFile.Value.Item2)
                 {
+                    ReadFileContents<EntityType>(existingFile.Key);
+                    /*
                     var ent = ReadFileContents<EntityType>(existingFile.Key);
 
                     if (ent != null) //default)
                         updatedFiles.Add(existingFile.Key);
+                    */
                 }
 
                 // TODO: log that a file was not read
