@@ -172,20 +172,11 @@
             where EntityType: class, IEntity
         {
             var entities = RetrieveAll<EntityType>();
+
             if (parentId.HasValue)
-            {
-
-                // Return entities under folder.
-                return entities.Where(x => x.Path[x.Path.Length - 2] == parentId.Value);
-
-            }
+                return entities.Where(x => x.Path[x.Path.Length - 2] == parentId.Value); // Return entities under folder.
             else
-            {
-
-                // Return root entities.
-                return entities.Where(x => x.Path.Length == 2);
-
-            }
+                return entities.Where(x => x.Path.Length == 2); // Return root entities.
         }
 
         #endregion
