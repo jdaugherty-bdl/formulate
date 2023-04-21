@@ -13,5 +13,6 @@
         public Type FieldType { get; set; }
         public object Configuration { get; set; }
         public bool IsServerSideOnly { get; set; }
-    }
+		public bool ModifyDisable { get; set; }
+	}
 }
