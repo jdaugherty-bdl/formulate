@@ -182,7 +182,9 @@
         /// </remarks>
         public IEnumerable<Form> RetrieveChildren(Guid? parentId)
         {
-            return Helper.RetrieveChildren<Form>(parentId);
+            var children = Helper.RetrieveChildren<Form>(parentId);
+
+            return children;
         }
 
         #endregion

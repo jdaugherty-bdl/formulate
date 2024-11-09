@@ -174,9 +174,17 @@
             var entities = RetrieveAll<EntityType>();
 
             if (parentId.HasValue)
-                return entities.Where(x => x.Path[x.Path.Length - 2] == parentId.Value); // Return entities under folder.
+            {
+                var children = entities.Where(x => x.Path[x.Path.Length - 2] == parentId.Value); // Return entities under folder.
+
+                return children;
+            }
             else
-                return entities.Where(x => x.Path.Length == 2); // Return root entities.
+            {
+                var children = entities.Where(x => x.Path.Length == 2); // Return root entities.
+
+                return children;
+            }
         }
 
         #endregion

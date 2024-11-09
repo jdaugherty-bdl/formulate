@@ -178,7 +178,9 @@
         /// </returns>
         public IEnumerable<ConfiguredForm> RetrieveChildren(Guid parentId)
         {
-            return Helper.RetrieveChildren<ConfiguredForm>(parentId);
+            var children = Helper.RetrieveChildren<ConfiguredForm>(parentId);
+
+            return children;
         }
 
         #endregion
