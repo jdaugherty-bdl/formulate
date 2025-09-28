@@ -101,7 +101,7 @@
                 FormDefinition = DefinitionHelper.GetFormDefinition(formId),
                 LayoutDefinition = DefinitionHelper.GetLayoutDefinition(layoutId),
                 TemplatePath = DefinitionHelper.GetTemplatePath(templateId),
-                PageId = page.Id
+                PageId = page?.Id ?? 0
             };
             return model;
         }
